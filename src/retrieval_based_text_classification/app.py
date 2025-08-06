@@ -6,7 +6,7 @@ import traceback
 
 from retrieval_based_text_classification.config import Config
 from retrieval_based_text_classification.routers import base_router
-from retrieval_based_text_classification.logging_config import LoggingSetup
+from retrieval_based_text_classification.utils.logging_config import LoggingSetup
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
