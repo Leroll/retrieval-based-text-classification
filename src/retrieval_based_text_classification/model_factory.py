@@ -78,7 +78,7 @@ class ModelFactory:
         
         embedding_fn 
             输入: List[str] - 查询列表
-            输出: numpy.ndarray - embeddings
+            输出: List[List[float]] - embeddings
         """
         logger.info("Initializing embedding model...")
         
@@ -104,7 +104,7 @@ class ModelFactory:
         self.embedding_model = LLM(model=self.embedding_model_name, task="embed")
         default_task = 'Given a web search query, retrieve relevant passages that answer the query'
         
-        def embedding_fn(queries: List[str], task: str = None) -> np.ndarray:
+        def embedding_fn(queries: List[str], task: str = None) -> List[List[float]]:
             """
             生成embedding向量
             
@@ -113,14 +113,14 @@ class ModelFactory:
                 task: 任务描述
                 
             Returns:
-                numpy.ndarray: embeddings
+                List[List[float]]: embeddings列表，每个元素是一个向量
             """
             if task is None:
                 task = default_task
             
             formatted_queries = [self._get_detailed_instruct(task, query) for query in queries]
             outputs = self.embedding_model.embed(formatted_queries)
-            embeddings = np.array([o.outputs.embedding for o in outputs], dtype=np.float32)
+            embeddings = [o.outputs.embedding for o in outputs]
             
             return embeddings
         
@@ -237,7 +237,7 @@ class ModelFactory:
         
         default_task = 'Given a web search query, retrieve relevant passages that answer the query'
         
-        def rerank_fn(pairs: List[Tuple[str, str]], 
+        def reranker_fn(pairs: List[Tuple[str, str]], 
                       task: str = None) -> List[float]:
             """
             对查询-文档对进行重排序评分
@@ -261,7 +261,7 @@ class ModelFactory:
             
             return scores
         
-        return rerank_fn
+        return reranker_fn
 
     def cleanup(self):
         """清理资源"""
