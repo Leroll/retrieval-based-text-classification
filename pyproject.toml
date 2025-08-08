@@ -28,6 +28,7 @@ dependencies = [
 [tool.uv]
 index-url = "https://mirrors.aliyun.com/pypi/simple/"
 package = true
+no-cache = true
 
 [project.scripts]
 rtc = "retrieval_based_text_classification.cli:cli"

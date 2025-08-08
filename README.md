@@ -24,7 +24,7 @@ C_MTEB地址: https://github.com/FlagOpen/FlagEmbedding/tree/master/research/C_M
 
 原始数据下载:
 ```bash
-cd resources/data
+cd resources/scenes/iflytek/raw_data
 wget https://storage.googleapis.com/cluebenchmark/tasks/iflytek_public.zip
 ```
 
