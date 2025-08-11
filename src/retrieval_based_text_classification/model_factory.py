@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import torch
-from vllm import LLM, SamplingParams
+from vllm import LLM, SamplingParams, PoolingParams
 from vllm.distributed.parallel_state import destroy_model_parallel
 import gc
 import math
@@ -24,9 +24,10 @@ class ModelFactory:
     
     Qwen3-embediing: Requires vllm>=0.8.5
     """
-    def __init__(self):
-        self.embedding_model_name = "Qwen/Qwen3-Embedding-0.6B"
-        self.reranker_model_name = 'Qwen/Qwen3-Reranker-0.6B'
+    def __init__(self, embedding_model_name: str = "Qwen/Qwen3-Embedding-0.6B", 
+                 reranker_model_name: str = "Qwen/Qwen3-Reranker-0.6B"):
+        self.embedding_model_name = embedding_model_name 
+        self.reranker_model_name = reranker_model_name 
         
         self.hf_cache_path, self.modelscope_cache_path = self._setup_cache_paths()
         
@@ -39,8 +40,8 @@ class ModelFactory:
         logger.info(f"Initialized ModelFactory with {self.number_of_gpu} GPUs")
         
         # 初始化函数
-        self.embedding_fn = self._initialize_embedding_fn()
-        self.reranker_fn = self._initialize_reranker_fn()
+        self.embedding_fn = self._initialize_embedding_fn() if self.embedding_model_name else None
+        self.reranker_fn = self._initialize_reranker_fn() if self.reranker_model_name else None
         
     def _setup_cache_paths(self):
         """set up cache paths for HF and ModelScope
@@ -83,7 +84,7 @@ class ModelFactory:
         logger.info("Initializing embedding model...")
         
         if "Qwen3-Embedding" in self.embedding_model_name:
-            embedding_fn = self.get_qwen3_embedding_fn()
+            embedding_fn = self._get_qwen3_embedding_fn()
         else:
             raise ValueError(f"Unsupported model name: {self.embedding_model_name}")
         
@@ -96,12 +97,13 @@ class ModelFactory:
         """
         return f'Instruct: {task_description}\nQuery:{query}'
     
-    def get_qwen3_embedding_fn(self):
+    def _get_qwen3_embedding_fn(self):
         """
         model_name = Qwen/Qwen3-Embedding-0.6B
         """
-        
-        self.embedding_model = LLM(model=self.embedding_model_name, task="embed")
+        self.embedding_model = LLM(model=self.embedding_model_name, 
+                                   task="embed", 
+                                   hf_overrides={"is_matryoshka": True})  # Matryoshka Representation Learning, 支持多种维度
         default_task = 'Given a web search query, retrieve relevant passages that answer the query'
         
         def embedding_fn(queries: List[str], task: str = None) -> List[List[float]]:
@@ -119,12 +121,18 @@ class ModelFactory:
                 task = default_task
             
             formatted_queries = [self._get_detailed_instruct(task, query) for query in queries]
-            outputs = self.embedding_model.embed(formatted_queries)
+            outputs = self.embedding_model.embed(formatted_queries, 
+                                                 pooling_params=PoolingParams(dimensions=768))  # 使用768维度的嵌入
             embeddings = [o.outputs.embedding for o in outputs]
             
             return embeddings
         
         return embedding_fn
+    
+    def get_embedding_fn(self):
+        """获取embedding函数
+        """
+        return self.embedding_fn
     
     
     #-----------------------------------
@@ -140,7 +148,7 @@ class ModelFactory:
         """
         logger.info("Initializing reranker model...")
         if "Qwen3-Reranker" in self.reranker_model_name:
-            reranker_fn = self.get_qwen3_reranker_fn()
+            reranker_fn = self._get_qwen3_reranker_fn()
         else:
             raise ValueError(f"Unsupported model name: {self.reranker_model_name}")
         
@@ -205,7 +213,7 @@ class ModelFactory:
             
         return scores
 
-    def get_qwen3_reranker_fn(self):
+    def _get_qwen3_reranker_fn(self):
         
         # 加载tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(self.reranker_model_name)
@@ -216,14 +224,14 @@ class ModelFactory:
         self.reranker_model = LLM(
             model=self.reranker_model_name, 
             tensor_parallel_size=self.number_of_gpu, 
-            max_model_len=10000, 
+            max_model_len=5120,   # 默认 10000
             enable_prefix_caching=True, 
             gpu_memory_utilization=0.8
         )
         
         # 配置参数
         suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
-        max_length = 8192
+        max_length = 1024  # 默认 8192
         suffix_tokens = self.tokenizer.encode(suffix, add_special_tokens=False)
         true_token = self.tokenizer("yes", add_special_tokens=False).input_ids[0]
         false_token = self.tokenizer("no", add_special_tokens=False).input_ids[0]
@@ -262,7 +270,16 @@ class ModelFactory:
             return scores
         
         return reranker_fn
+    
+    
+    def get_reranker_fn(self):
+        """获取reranker函数
+        """
+        return self.reranker_fn
 
+    #-----------------------------------
+    # 其他功能
+    #-----------------------------------
     def cleanup(self):
         """清理资源"""
         logger.info("Cleaning up model resources...")
@@ -283,6 +300,14 @@ class ModelFactory:
         torch.cuda.empty_cache()
     
         logger.info("Model resources cleaned up successfully")
+    
+    def __del__(self):
+        """析构函数，在对象被垃圾回收时自动调用cleanup"""
+        try:
+            self.cleanup()
+        except Exception as e:
+            # 在析构函数中避免抛出异常
+            logger.warning(f"Error during ModelFactory destruction: {e}")
 
 
 # 使用示例
