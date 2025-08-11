@@ -22,13 +22,21 @@ rtc serve
 数据地址: https://github.com/CLUEbenchmark/CLUE  
 C_MTEB地址: https://github.com/FlagOpen/FlagEmbedding/tree/master/research/C_MTEB  
 
-原始数据下载:
+1. 原始数据下载:
 ```bash
-cd resources/scenes/iflytek/raw_data
-wget https://storage.googleapis.com/cluebenchmark/tasks/iflytek_public.zip
+demo_path="resources/scenes/iflytek/raw_data" \
+&& mkdir -p ${demo_path} \
+&& cd ${demo_path} \
+&& wget https://storage.googleapis.com/cluebenchmark/tasks/iflytek_public.zip \
+&& unzip iflytek_public.zip \
+&& rm iflytek_public.zip
 ```
 
-
+2. 数据导入Milvus数据库
+```bash
+cd retrieval-based-text-classification  # 切换到项目根目录
+python -m retrieval_based_text_classification.retriever.iflytek
+```
 
 
 # TODO 

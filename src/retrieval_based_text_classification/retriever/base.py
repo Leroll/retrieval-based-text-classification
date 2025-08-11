@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from pymilvus import MilvusClient
-from pymilvus.bulk_writer import LocalBulkWriter, bulk_importer
-from typing import List, Dict, Optional
+from typing import List, Dict
 from loguru import logger
+
 
 class BaseRetriever(ABC):
     
@@ -40,4 +40,15 @@ class BaseRetriever(ABC):
         """
         pass
     
-    
+    def recreate_collection(self):
+        """
+        重新创建集合（删除旧集合，创建新集合）
+        
+        在schema变更时使用
+        """
+        if self.client.has_collection(self.collection_name):
+            logger.info(f"Dropping existing collection: {self.collection_name}")
+            self.client.drop_collection(self.collection_name)
+        
+        logger.info(f"Creating new collection: {self.collection_name}")
+        self._create_collection()
