@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from pymilvus import MilvusClient
 from typing import List, Dict
 from loguru import logger
+from pathlib import Path    
 
 
 class BaseRetriever(ABC):
@@ -14,6 +15,7 @@ class BaseRetriever(ABC):
         """        
         self.client = MilvusClient(uri=uri)
         self.schema = self._get_schema()
+        self.index_params = self._get_index_params()
         self.collection_name = collection_name
         if not self.client.has_collection(collection_name):
             self._create_collection()
@@ -23,12 +25,23 @@ class BaseRetriever(ABC):
     
     @abstractmethod
     def _get_schema(self):
+        """创建schema
+        """
+        pass
+    
+    @abstractmethod 
+    def _get_index_params(self):
+        """创建索引参数
+        
+        Milvus Lite 仅支持FLAT索引类型。无论在 Collections 中指定了哪种索引类型，它都使用 FLAT 类型。
+        """
         pass
     
     def _create_collection(self):
         self.client.create_collection(
             collection_name=self.collection_name,
-            schema=self.schema
+            schema=self.schema,
+            index_params=self.index_params
         )
     
     @abstractmethod
@@ -40,11 +53,19 @@ class BaseRetriever(ABC):
         """
         pass
     
+    @abstractmethod
+    def file_insert(self, file_path: Path):
+        """从文件中批量导入数据，
+        
+        读取数据，调用batch_insert方法插入数据
+        """
+        pass
+    
     def recreate_collection(self):
         """
         重新创建集合（删除旧集合，创建新集合）
         
-        在schema变更时使用
+        在schema或者index变更时使用
         """
         if self.client.has_collection(self.collection_name):
             logger.info(f"Dropping existing collection: {self.collection_name}")

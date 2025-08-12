@@ -6,6 +6,7 @@ from pathlib import Path
 from datasets import load_dataset
 from typing import Dict
 import hashlib
+import json
 
 from .base import BaseRetriever
 
@@ -47,12 +48,18 @@ class IflytekData(BaseModel):
             schema: Milvus集合的Schema
         """
         schema = MilvusClient.create_schema()
-        schema.add_field(field_name="data_id", datatype=DataType.VARCHAR, is_primary=True, max_length=64)
-        schema.add_field(field_name="label", datatype=DataType.INT8)
-        schema.add_field(field_name="label_des", datatype=DataType.VARCHAR, max_length=64)
-        schema.add_field(field_name="sentence", datatype=DataType.VARCHAR, max_length=640)  # 依据数据长度分布得到
-        schema.add_field(field_name="sentence_len", datatype=DataType.INT16)
-        schema.add_field(field_name="embedding", datatype=DataType.FLOAT_VECTOR, dim=768)
+        schema.add_field(field_name="data_id", datatype=DataType.VARCHAR, is_primary=True, max_length=64, 
+                         description="数据唯一标识, hash of sentence")
+        schema.add_field(field_name="label", datatype=DataType.INT8, 
+                         description="分类标签id")
+        schema.add_field(field_name="label_des", datatype=DataType.VARCHAR, max_length=64, 
+                         description="分类标签")
+        schema.add_field(field_name="sentence", datatype=DataType.VARCHAR, max_length=640, 
+                         description="app描述文本")  # 依据数据长度分布得到
+        schema.add_field(field_name="sentence_len", datatype=DataType.INT16,
+                         description="原始句子长度")
+        schema.add_field(field_name="embedding", datatype=DataType.FLOAT_VECTOR, dim=768,
+                         description="sentence embedding")
         
         return schema
         
@@ -60,6 +67,39 @@ class IflytekRetriever(BaseRetriever):
     
     def _get_schema(self):
         return IflytekData.get_milvus_schema()
+    
+    def _get_index_params(self):
+        """创建索引参数
+        """
+        index_params = MilvusClient.prepare_index_params()
+
+        # lite 模式不支持
+        # index_params.add_index(
+        #     field_name="embedding", 
+        #     index_type="HNSW_SQ", 
+        #     index_name="embedding_index",
+        #     metric_type="COSINE", 
+        #     params={
+        #         "M": 64, # 较大的M 通常会提高准确率，但会增加内存开销，并减慢索引构建和搜索速度。建议值[5, 100].
+        #         "efConstruction": 100, # efConstruction 越高，索引越准确，因为会探索更多潜在连接。建议值[50, 500].
+        #         "sq_type": "SQ8", 
+        #         "refine": True,
+        #         "refine_type": "FP32"
+        #     } 
+        # )
+
+        index_params.add_index(
+            field_name="embedding", 
+            index_type="IVF_FLAT", 
+            index_name="embedding_index", 
+            metric_type="COSINE", 
+            params={
+                "nlist": 128, # nlist 值越大，通过创建更精细的簇来提高召回率，但会增加索引构建时间。
+                             # 建议值 [32, 4096]
+            }
+        )
+
+        return index_params
     
     def batch_insert(self, data: List[Dict], batch_size: int = 1024):
         """
@@ -161,8 +201,10 @@ class DataImporter:
         logger.info("-"*42)
         logger.info("Initialized IflytekRetriever.")
         logger.info(f"collection name: {retriever.collection_name}")
-        logger.info(f"collection schema: {retriever.schema}")
-        logger.info(f"collection row count: {retriever.client.get_collection_stats(collection_name=retriever.collection_name)['row_count']}")
+        logger.info(f"schema:\n{json.dumps(retriever.schema.to_dict(), indent=4, ensure_ascii=False)}")
+        logger.info(f"index params:\n{retriever.index_params}")
+        logger.info(f"state:\n{retriever.client.get_collection_stats(collection_name=retriever.collection_name)}")
+        logger.info(f"load state:\n{retriever.client.get_load_state(retriever.collection_name)}")
         logger.info("-"*42)
         
         # 开始导入数据
@@ -171,10 +213,14 @@ class DataImporter:
         self.import_20250811_iflytek_train(model_factory, retriever)
         
         
+        # flush数据
+        retriever.client.flush(retriever.collection_name)
+        logger.info("Data flushed to Milvus.")
+        
+        
         # 插入完毕
         logger.info("-"*42)
-        retriever.client.flush(retriever.collection_name)
-        logger.info("Data import completed. Flushed changes to Milvus.")
+        logger.info("Data import completed.")
         logger.info(f"collection row count: {retriever.client.get_collection_stats(collection_name=retriever.collection_name)['row_count']}")
         logger.info("Sample data from collection:")
         sample_data = retriever.client.query(collection_name=retriever.collection_name, limit=5)
@@ -182,6 +228,7 @@ class DataImporter:
             item['embedding'] = item['embedding'][:10]  # 避免打印过长的嵌入向量
             logger.info(item)
         logger.info("-"*42)
+        logger.info(f"collection state:\n{retriever.client.get_collection_stats(collection_name=retriever.collection_name)}")
 
 if __name__ == "__main__":
     """
