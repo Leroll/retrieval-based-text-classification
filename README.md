@@ -43,6 +43,8 @@ python -m retrieval_based_text_classification.retriever.iflytek
 - [ ] 搭建完整pipeline
     - [x] 完成基于qwen3 embedding & reranker 的模型模块，切采用vllm版
     - [x] 完成数据导入milvus数据库模块
-    - [ ] 完成完整检索链路
-    - [ ] 完成结果评测模块 
-    - [ ] 加入bm25等完善检索模块
+    - [x] 完成完整检索链路
+    - [x] 完成结果评测模块 
+    - [ ] 完善整体链路
+        - [ ] 加入前后处理
+        - [ ] 加入bm25等完善检索模块

@@ -4,7 +4,7 @@ from loguru import logger
 
 
 class RetrievalBasedTextClassification:
-    def __init__(self):
+    def __init__(self, ):
         self.data = []
         self.model = None
 
