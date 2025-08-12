@@ -166,6 +166,70 @@ class IflytekRetriever(BaseRetriever):
         data = load_dataset("json", data_files={"train": str(file_path) })['train']
         self.batch_insert(data.to_list(), batch_size=1024)
         
+    
+    def _retrieve(self, query: List[str], 
+                 top_k: int = 5, filter_str: str = None, is_rerank: bool = False):
+        
+        embeddings = self.embedding_fn(query)
+        
+        # 1. milvus 相似度检索
+        search_params = {
+            "params": {
+                "nprobe": 10, # Number of clusters to search
+            }
+        }
+
+        result = self.client.search(
+            collection_name=self.collection_name, # Collection name
+            data=embeddings,
+            filter=filter_str,
+            limit=top_k, 
+            output_fields=["data_id", "label", "label_des", "sentence"],
+            search_params=search_params,
+            anns_field="embedding",
+        )
+        
+        # 2. 如果需要，使用reranker进行二次排序
+        if is_rerank and self.reranker_fn:
+            
+            for q_idx in range(len(query)):
+                pairs = [ [query[q_idx], d]  for d in result[q_idx]]
+                scores = self.reranker_fn(pairs)
+                for d_idx, doc in enumerate(result[q_idx]):
+                    doc['rerank_score'] = scores[d_idx]
+                result[q_idx].sort(key=lambda x: x['rerank_score'], reverse=True)
+            
+        return result
+    
+    def classify(self, query: List[str], 
+                 top_k: int = 5, filter_str: str = None, is_rerank: bool = False, 
+                 max_batch_size: int = 32, 
+                 is_return_retrieve_result: bool = False,):
+        """
+        分类查询
+        
+        is_return_retrieve_result: 是否返回检索结果
+        """
+        if not query:
+            logger.warning("No query provided.")
+            return []
+        
+        
+        all_predicts = []
+        all_results = []
+        for i in range(0, len(query), max_batch_size):
+            batch_query = query[i:i + max_batch_size]
+            logger.info(f"Processing batch {i // max_batch_size + 1} with {len(batch_query)} queries.")
+            
+            # 调用检索方法
+            result = self._retrieve(batch_query, top_k, filter_str, is_rerank)
+            predicts = [item[0] for item in result]
+            
+            all_predicts.extend(predicts)
+            all_results.extend(result) if is_return_retrieve_result else None
+
+        return (all_predicts, all_results) if is_return_retrieve_result else all_predicts
+        
 
 class DataImporter:
     """

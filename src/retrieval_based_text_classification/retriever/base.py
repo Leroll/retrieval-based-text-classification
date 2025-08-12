@@ -44,6 +44,19 @@ class BaseRetriever(ABC):
             index_params=self.index_params
         )
     
+    def recreate_collection(self):
+        """
+        重新创建集合（删除旧集合，创建新集合）
+        
+        在schema或者index变更时使用
+        """
+        if self.client.has_collection(self.collection_name):
+            logger.info(f"Dropping existing collection: {self.collection_name}")
+            self.client.drop_collection(self.collection_name)
+        
+        logger.info(f"Creating new collection: {self.collection_name}")
+        self._create_collection()
+    
     @abstractmethod
     def batch_insert(self, data: List[Dict]):
         """
@@ -61,15 +74,27 @@ class BaseRetriever(ABC):
         """
         pass
     
-    def recreate_collection(self):
+    @abstractmethod
+    def _retrieve(self, query: List[str], 
+                  top_k: int = 5, filter_str: str = None, is_rerank: bool = False) -> List[Dict]:
+        """检索并返回检索结果
         """
-        重新创建集合（删除旧集合，创建新集合）
+        pass
+    
+    @abstractmethod
+    def classify(self, query: List[str], 
+                  top_k: int = 5, filter_str: str = None, is_rerank: bool = False, 
+                  max_batch_size: int = 32, is_return_retrieve_result: bool = False) -> List[Dict]:
+        """分类查询
         
-        在schema或者index变更时使用
+        Args:
+            query: 查询语句列表
+            top_k: 返回的结果数量
+            filter_str: 过滤条件
+            is_rerank: 是否进行重排序
+            max_batch_size: 最大批处理大小
+            is_return_retrieve_result: 是否返回检索结果
         """
-        if self.client.has_collection(self.collection_name):
-            logger.info(f"Dropping existing collection: {self.collection_name}")
-            self.client.drop_collection(self.collection_name)
+        pass
         
-        logger.info(f"Creating new collection: {self.collection_name}")
-        self._create_collection()
+        

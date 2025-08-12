@@ -226,7 +226,7 @@ class ModelFactory:
             tensor_parallel_size=self.number_of_gpu, 
             max_model_len=5120,   # 默认 10000
             enable_prefix_caching=True, 
-            gpu_memory_utilization=0.8
+            gpu_memory_utilization=0.6
         )
         
         # 配置参数
