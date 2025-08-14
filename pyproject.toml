@@ -15,6 +15,7 @@ dependencies = [
     "ipywidgets>=8.1.7",
     "loguru>=0.7.3",
     "nvitop>=1.5.2",
+    "openpyxl>=3.1.5",
     "psutil>=7.0.0",
     "pydantic>=2.11.7",
     "pymilvus[bulk_writer]<2.6.0",

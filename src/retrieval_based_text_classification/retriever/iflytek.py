@@ -65,6 +65,14 @@ class IflytekData(BaseModel):
         
 class IflytekRetriever(BaseRetriever):
     
+    def __init__(self, uri: str, collection_name: str,
+                 embedding_fn=None, reranker_fn=None):
+        """
+        """
+        super().__init__(uri, collection_name, embedding_fn, reranker_fn)
+        
+        self.reranker_prompt = "下面的<Query>和<Document>分别是两个app的应用描述，判断它们是否属于同一分类。"
+    
     def _get_schema(self):
         return IflytekData.get_milvus_schema()
     
@@ -131,7 +139,7 @@ class IflytekRetriever(BaseRetriever):
             items_need_embedding = [item for item in batch if item.embedding is None]
             if items_need_embedding:
                 sentences = [item.sentence for item in items_need_embedding]
-                embeddings = self.embedding_fn(sentences)
+                embeddings = self.embedding_fn(sentences, task="")
                 
                 # 将生成的嵌入向量分配给对应的项目
                 for item, embedding in zip(items_need_embedding, embeddings):
@@ -170,7 +178,7 @@ class IflytekRetriever(BaseRetriever):
     def _retrieve(self, query: List[str], 
                  top_k: int = 5, filter_str: str = None, is_rerank: bool = False):
         
-        embeddings = self.embedding_fn(query)
+        embeddings = self.embedding_fn(query, task="")
         
         # 1. milvus 相似度检索
         search_params = {
@@ -193,8 +201,8 @@ class IflytekRetriever(BaseRetriever):
         if is_rerank and self.reranker_fn:
             
             for q_idx in range(len(query)):
-                pairs = [ [query[q_idx], d]  for d in result[q_idx]]
-                scores = self.reranker_fn(pairs)
+                pairs = [ [query[q_idx], d]  for d in result[q_idx] ]
+                scores = self.reranker_fn(pairs, task=self.reranker_prompt)
                 for d_idx, doc in enumerate(result[q_idx]):
                     doc['rerank_score'] = scores[d_idx]
                 result[q_idx].sort(key=lambda x: x['rerank_score'], reverse=True)

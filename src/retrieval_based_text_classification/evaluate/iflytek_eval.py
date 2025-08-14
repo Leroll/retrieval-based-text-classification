@@ -88,7 +88,8 @@ if __name__ == "__main__":
         q_n = -1  # number of queries to log
         d_n = -1  # number of documents to log per query
         only_log_false = True
-        output_path = Path("outputs/2025-08-12_未训练Qwen3-embedding-0.6B/iflytek_eval.log")
+        exp_dir = "2025-08-12｜v3｜reranker-prompt｜acc"
+        output_path = Path(f"outputs") / exp_dir / "iflytek_eval.log"
         
         output_path.parent.mkdir(parents=True, exist_ok=True)
         logger.add(str(output_path))

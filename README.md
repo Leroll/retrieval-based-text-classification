@@ -38,6 +38,12 @@ cd retrieval-based-text-classification  # 切换到项目根目录
 python -m retrieval_based_text_classification.retriever.iflytek
 ```
 
+3. 评测效果
+```bash
+cd retrieval-based-text-classification
+python -m retrieval_based_text_classification.evaluate.iflytek_eval
+```
+
 
 # TODO 
 - [ ] 搭建完整pipeline
@@ -48,3 +54,4 @@ python -m retrieval_based_text_classification.retriever.iflytek
     - [ ] 完善整体链路
         - [ ] 加入前后处理
         - [ ] 加入bm25等完善检索模块
+        - [ ] Dataimporter单独拆出来
