@@ -157,24 +157,7 @@ class IflytekRetriever(BaseRetriever):
             success_count += res.get('upsert_count', 0)
         
         logger.info(f"Total data num: {len(data)} | successfully inserted: {success_count} | collection: {self.collection_name}.")
-    
-    def file_insert(self, file_path: Path = "resources/scenes/iflytek/raw_data/train.json"):
-        """
-        从文件中批量插入数据
-        Args:
-            file_path: 文件路径，文件内容为JSON格式的列表
-            
-        sample:
-            {
-                'label': '11',
-                'label_des': '薅羊毛',
-                'sentence': "xxx"
-            }
-        """
-        data = load_dataset("json", data_files={"train": str(file_path) })['train']
-        self.batch_insert(data.to_list(), batch_size=1024)
         
-    
     def _retrieve(self, query: List[str], 
                  top_k: int = 5, filter_str: str = None, is_rerank: bool = False):
         
@@ -245,11 +228,12 @@ class DataImporter:
     
     记录各批次数据导入
     """
-    def import_20250811_iflytek_train(self, model_factory, retriever: IflytekRetriever):
+    def import_20250811_iflytek_train(self, retriever: IflytekRetriever):
         # 2025-08-11 - iflytek train.json 导入
-        
-        logger.info("Importing 2025-08-11 iflytek train.json data...")
-        retriever.file_insert(file_path=Path("resources/scenes/iflytek/raw_data/train.json"))
+        data_path = Path("resources/scenes/iflytek/raw_data/train.json")
+        logger.info(f"Importing... | 2025-08-11 | {data_path.name}")
+        data = load_dataset("json", data_files={"train": str(data_path) })['train']
+        retriever.batch_insert(data.to_list(), batch_size=1024)
         
     
     def run(self, is_recreate: bool = False):
