@@ -67,14 +67,6 @@ class BaseRetriever(ABC):
         pass
     
     @abstractmethod
-    def file_insert(self, file_path: Path):
-        """从文件中批量导入数据，
-        
-        读取数据，调用batch_insert方法插入数据
-        """
-        pass
-    
-    @abstractmethod
     def _retrieve(self, query: List[str], 
                   top_k: int = 5, filter_str: str = None, is_rerank: bool = False) -> List[Dict]:
         """检索并返回检索结果

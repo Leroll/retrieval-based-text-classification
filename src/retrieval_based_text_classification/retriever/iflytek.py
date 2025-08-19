@@ -10,6 +10,9 @@ import json
 
 from .base import BaseRetriever
 
+from retrieval_based_text_classification.model_factory import ModelFactory
+
+
 class IflytekData(BaseModel):
     """定义Iflytek数据模型
     """
@@ -240,7 +243,6 @@ class DataImporter:
         """ 
         """
         # 加载model, 不同批次的导入保证 embedding model 一致
-        from retrieval_based_text_classification.model_factory import ModelFactory
         model_factory = ModelFactory(embedding_model_name="Qwen/Qwen3-Embedding-0.6B",
                                     reranker_model_name=None)
         
@@ -266,7 +268,7 @@ class DataImporter:
         # 开始导入数据
         logger.info("Press any key to start importing data...")
         input()
-        self.import_20250811_iflytek_train(model_factory, retriever)
+        self.import_20250811_iflytek_train(retriever)
         
         
         # flush数据
