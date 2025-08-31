@@ -1,6 +1,5 @@
 # retrieval-based-text-classification
 
-
 # 快速开始
 ```bash
 # 环境准备
